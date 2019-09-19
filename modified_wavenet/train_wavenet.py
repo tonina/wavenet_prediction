@@ -7,8 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
-from modified_wavenet.wavenet_model import *
-from process_data import DataTrainBatch
+from wavenet.wavenet_model import *
+from utils.audio_utils import WavBatch
 from hparams import Parameters as p
 
 tf.set_random_seed(1)
@@ -48,10 +48,12 @@ def wavenet_train(model_path, model_name, num_steps, start_step=0, tune=False):
         def enqueue_thread():
             with coord.stop_on_exception():
                 while not coord.should_stop():
-                    w_batch = DataTrainBatch(b_size)
+                    w_batch = WavBatch(b_size)
                     while True:
                         try:
                             xb, cb = next(w_batch)
+                            print('xb shape', xb.shape)
+                            print('cb shape', cb.shape)
                             # x_quantized = mu_law_encode(xb, p.quantization_channels)
                             # x_hot = tf.one_hot(x_quantized, p.quantization_channels)
                             if p.repeat_conditions:
