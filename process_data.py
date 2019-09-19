@@ -23,9 +23,11 @@ def load_company_data(company_name, start_date, end_date, source):
     return hist_data
 
 
-class DataBatch(object):
+class DataTestBatch(object):
     '''
     Class for generation data batches from dataset.
+    Create inputs and target output sets in form {input series} - {target next value}
+    Shifted by one value. Suitable for autoregressive network.
     '''
     def __init__(self, company_name, start_date, end_date, deep, batch_size,
                  source='yahoo', start_i=0, stop_i=None):
@@ -34,10 +36,10 @@ class DataBatch(object):
         self.data = load_company_data(company_name, start_date, end_date, source)
         self.adj_close = self.data['Adj Close'].values
         self.i = start_i
-        self.stop_i = len(self.data.index) - deep - 1
+        self.stop_i = len(self.data.index) - deep - 1 if stop_i is None else stop_i
 
     def __iter__(self):
-        return(self)
+        return self
 
     def __next__(self):
         if self.i > self.stop_i:
@@ -58,14 +60,49 @@ class DataBatch(object):
             return X, T
 
 
+class DataTrainBatch(object):
+    '''
+    Class for generation data batches from dataset.
+    Create only inputs data, for convolutional network.
+    '''
+    def __init__(self, company_name, start_date, end_date, batch_size, deep, deep_factor, step,
+                 source='yahoo', start_i=0, stop_i=None):
+        self.batch_size = batch_size
+        self.length = int(deep * deep_factor)
+        self.step = step
+        self.data = load_company_data(company_name, start_date, end_date, source)
+        self.adj_close = self.data['Adj Close'].values
+        self.i = start_i
+        self.stop_i = len(self.data.index) - self.length if stop_i is None else stop_i
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.i > self.stop_i:
+            raise StopIteration
+        else:
+            ins = []
+            for k in range(self.batch_size):
+                try:
+                    item = self.adj_close[self.i+k: self.i+k+self.length]
+                    if len(item) == self.length:
+                        ins.append(item)
+                except IndexError:
+                    pass
+            self.i += self.batch_size
+            X = np.array(ins)
+            return X
+
+
 if __name__ == '__main__':
     start = datetime(2019, 7, 1)
     end = datetime.today()
-    d_batch = DataBatch('WMT', start, end, 5, batch_size=8)
+    d_batch = DataTrainBatch('WMT', start, end, 6, 20, 1.6, 2)
     while True:
         try:
-            x, t = next(d_batch)
+            x = next(d_batch)
             print('x', x.shape)
-            print('t', t.shape)
+
         except StopIteration:
             break
